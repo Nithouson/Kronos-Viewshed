@@ -8,6 +8,6 @@ QGIS 3.16.1-Hannover
 ## Requirements
 Support major viewshed algorithms including R3,R2 and XDraw    
 Implement one of two new viewshed algorothms    
-Viewshed from multiple observers
+Viewshed from multiple observers    
 Simple observation site optimization    
 
