@@ -11,3 +11,8 @@ Implement one of two new viewshed algorithms
 Viewshed from multiple observers    
 Simple observation site optimization    
 
+## Useful materials
+[PyQGIS开发者手册](https://docs.qgis.org/testing/en/docs/pyqgis_developer_cookbook/index.html)      
+[PyQGIS开发者手册（中文翻译）](https://luolingchun.github.io/PyQGIS-Developer-Cookbook-cn/)        
+[QGIS插件创建](https://blog.csdn.net/deirjie/article/details/77043954)    
+[环境配置：Python3.8+PyQt5+pyqt5-tools+Pycharm](https://blog.csdn.net/u013541325/article/details/107742835])     
