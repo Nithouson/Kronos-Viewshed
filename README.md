@@ -5,7 +5,7 @@ A viewshed plugin for QGIS as a part of Project Kronos.
 Python 3.8 with PyQt5/Qt5-Tools 5.15    
 QGIS 3.16.1-Hannover
 
-## Requirements
+## Features
 Support major viewshed algorithms including R3,R2 and XDraw    
 Implement one of two new viewshed algorithms    
 Viewshed from multiple observers    
