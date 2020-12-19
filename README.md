@@ -16,3 +16,4 @@ Simple observation site optimization
 [PyQGIS开发者手册（中文翻译）](https://luolingchun.github.io/PyQGIS-Developer-Cookbook-cn/)        
 [QGIS插件创建](https://blog.csdn.net/deirjie/article/details/77043954)    
 [环境配置：Python3.8+PyQt5+pyqt5-tools+Pycharm](https://blog.csdn.net/u013541325/article/details/107742835)     
+[PyQGIS联调](https://blog.csdn.net/u013541325/article/details/107742835)
