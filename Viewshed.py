@@ -21,9 +21,23 @@
  *                                                                         *
  ***************************************************************************/
 """
+from PyQt5.QtWidgets import QAction, QMessageBox
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+from qgis.core import (
+    QgsRasterLayer,
+    QgsProject,
+    QgsPointXY,
+    QgsRaster,
+    QgsRasterShader,
+    QgsColorRampShader,
+    QgsSingleBandPseudoColorRenderer,
+    QgsSingleBandColorDataRenderer,
+    QgsSingleBandGrayRenderer,
+)
+from PIL import Image
+from qgis.PyQt.QtGui import QColor
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -189,6 +203,12 @@ class Kronos:
             self.first_start = False
             self.dlg = KronosDialog()
 
+        self.dlg.cbxLayer.clear()
+        layers = list(QgsProject.instance().mapLayers().values())
+        for layer in layers:
+            if layer.type() == layer.RasterLayer:
+                self.dlg.cbxLayer.addItem(layer.name())
+
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -197,4 +217,30 @@ class Kronos:
         if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
-            pass
+            lid = self.dlg.cbxLayer.currentIndex()
+            inputlayer = layers[lid]
+            W = inputlayer.width()
+            H = inputlayer.height()
+            obsX = float(self.dlg.ledXpos.text())
+            obsY = float(self.dlg.ledYpos.text())
+            bbox = inputlayer.extent()
+            Xmin,Ymin,Xmax,Ymax = bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(),bbox.yMaximum()
+            if obsX < Xmin or obsX > Xmax or obsY < Ymin or obsY > Ymax:
+                QMessageBox.critical(self.iface.mainWindow(), self.tr("Error"),
+                                    self.tr("The observer point is outside the raster extent."))
+                exit(1)
+
+            outputlayername = self.dlg.ledOutlayer.text()
+            outputpath = os.path.join(QgsProject.instance().homePath(), outputlayername)
+            meta = inputlayer.metadata()
+
+            im = Image.new('L',(W,H))
+            im.save(outputpath+".tif")
+
+            rlayer = QgsRasterLayer(outputpath+".tif", outputlayername)
+
+            if not rlayer.isValid():
+                print("Layer failed to load!")
+            else:
+                QgsProject.instance().addMapLayer(rlayer)
+

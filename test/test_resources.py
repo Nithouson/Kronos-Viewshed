@@ -8,9 +8,9 @@
 
 """
 
-__author__ = 'sinesloop@pku.edu.cn'
-__date__ = '2020-12-06'
-__copyright__ = 'Copyright 2020, Kronos Inc.'
+__author__ = 'hanwgeek@gmail.com'
+__date__ = '2020-12-19'
+__copyright__ = 'Copyright 2020, Kronos Team'
 
 import unittest
 
@@ -18,7 +18,7 @@ from qgis.PyQt.QtGui import QIcon
 
 
 
-class AloeloveDialogTest(unittest.TestCase):
+class KronosDialogTest(unittest.TestCase):
     """Test rerources work."""
 
     def setUp(self):
@@ -31,12 +31,12 @@ class AloeloveDialogTest(unittest.TestCase):
 
     def test_icon_png(self):
         """Test we can click OK."""
-        path = ':/plugins/Aloelove/icon.png'
+        path = ':/plugins/Kronos/icon.png'
         icon = QIcon(path)
         self.assertFalse(icon.isNull())
 
 if __name__ == "__main__":
-    suite = unittest.makeSuite(AloeloveResourcesTest)
+    suite = unittest.makeSuite(KronosResourcesTest)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
 
