@@ -38,12 +38,16 @@ from qgis.core import (
 )
 from PIL import Image
 from qgis.PyQt.QtGui import QColor
+import os.path
+import numpy as np
+from math import *
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .Viewshed_dialog import KronosDialog
-import os.path
+
+
 
 
 class Kronos:
@@ -225,16 +229,31 @@ class Kronos:
             obsY = float(self.dlg.ledYpos.text())
             bbox = inputlayer.extent()
             Xmin,Ymin,Xmax,Ymax = bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(),bbox.yMaximum()
+            Xres = (Xmax - Xmin)/W
+            Yres = (Ymax - Ymin)/H
             if obsX < Xmin or obsX > Xmax or obsY < Ymin or obsY > Ymax:
                 QMessageBox.critical(self.iface.mainWindow(), self.tr("Error"),
                                     self.tr("The observer point is outside the raster extent."))
-                exit(1)
+                return
 
             outputlayername = self.dlg.ledOutlayer.text()
             outputpath = os.path.join(QgsProject.instance().homePath(), outputlayername)
             meta = inputlayer.metadata()
 
+            dem = np.zeros((W,H))
+            for c in range(W):
+                for r in range(H):
+                    dem[c,r], result= inputlayer.dataProvider().sample(QgsPointXY
+                                (Xmin + (c+0.5) * Xres, Ymax - (r+0.5) * Yres), 1)
+            visible = Viewshed_Naive(dem, (obsX-Xmin)/Xres, (obsY-Ymin)/Yres)
+
             im = Image.new('L',(W,H))
+            for c in range(W):
+                for r in range(H):
+                    if visible[c,r] == 0:
+                        im.putpixel((c,r),0)
+                    else:
+                        im.putpixel((c,r),255)
             im.save(outputpath+".tif")
 
             rlayer = QgsRasterLayer(outputpath+".tif", outputlayername)
@@ -244,3 +263,62 @@ class Kronos:
             else:
                 QgsProject.instance().addMapLayer(rlayer)
 
+
+
+def dist(x1,y1,x2,y2):
+    return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
+
+
+def Viewshed_Naive(dem, obsX, obsY):
+    W = dem.shape[0]
+    H = dem.shape[1]
+    visible = np.ones(dem.shape)
+    obsH = dem[int(floor(obsX)), H - int(ceil(obsY))]
+    for r in range(H):
+        tarY = H - r - 0.5
+        for c in range(W):
+            tarX = c + 0.5
+            tarH = dem[c,r]
+            tarA = (tarH-obsH)/dist(obsX,obsY,tarX,tarY)
+            if abs(tarY-obsY) > abs(tarX-obsX):
+                stepX = (tarX-obsX)/(tarY-obsY)
+                if tarY > obsY:
+                    midX = obsX + stepX * (int(ceil(obsY)) - obsY)
+                    for midY in range(int(ceil(obsY)),int(floor(tarY))):
+                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                        midA = (midH-obsH)/dist(obsX,obsY,midX,midY)
+                        if midA>tarA:
+                            visible[c,r] = 0
+                            break
+                        midX += stepX
+                else:
+                    midX = tarX + stepX * (int(ceil(tarY)) - tarY)
+                    for midY in range(int(ceil(tarY)), int(floor(obsY))):
+                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                        midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
+                        if midA > tarA:
+                            visible[c,r] = 0
+                            break
+                        midX += stepX
+
+            else:
+                stepY = (tarY - obsY) / (tarX - obsX)
+                if tarX > obsX:
+                    midY = obsY + stepY * (int(ceil(obsX)) - obsX)
+                    for midX in range(int(ceil(obsX)), int(floor(tarX))):
+                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                        midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
+                        if midA > tarA:
+                            visible[c,r] = 0
+                            break
+                        midY += stepY
+                else:
+                    midY = tarY + stepY * (int(ceil(tarX)) - tarX)
+                    for midX in range(int(ceil(tarX)), int(floor(obsX))):
+                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                        midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
+                        if midA > tarA:
+                            visible[c,r] = 0
+                            break
+                        midY += stepY
+    return visible
