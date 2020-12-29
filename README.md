@@ -11,6 +11,9 @@ A viewshed plugin for QGIS as a part of Project Kronos.
 - Viewshed from multiple observers    
 - Simple observation site optimization    
 
+## Algorithm
+- [GPU enabled XDraw viewshed](https://www.sciencedirect.com/science/article/pii/S0743731515001197)
+
 ## Useful materials
 - [PyQGIS开发者手册](https://docs.qgis.org/testing/en/docs/pyqgis_developer_cookbook/index.html)      
 - [PyQGIS开发者手册（中文翻译）](https://luolingchun.github.io/PyQGIS-Developer-Cookbook-cn/)        
