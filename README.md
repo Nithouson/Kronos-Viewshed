@@ -12,6 +12,7 @@ A viewshed plugin for QGIS as a part of Project Kronos.
 - Simple observation site optimization    
 
 ## Algorithm
+- [Basic viewshed](https://www.researchgate.net/publication/2808061_Geometric_Algorithms_for_Siting_of_Air_Defense_Missile_Batteries)
 - [GPU enabled XDraw viewshed](https://www.sciencedirect.com/science/article/pii/S0743731515001197)
 
 ## Useful materials
