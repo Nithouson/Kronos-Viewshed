@@ -246,7 +246,7 @@ class Kronos:
             mid = self.dlg.cbxAlgo.currentIndex()
 
             outputlayername = self.dlg.ledOutlayer.text()
-            outputpath = self.dlg.ledFilePath.text()
+            outputpath = self.dlg.ledFilepath.text()
             meta = inputlayer.metadata()
 
             dem = np.zeros((W,H))
@@ -255,8 +255,9 @@ class Kronos:
                     dem[c,r], result= inputlayer.dataProvider().sample(QgsPointXY
                                 (Xmin + (c+0.5) * Xres, Ymax - (r+0.5) * Yres), 1)
 
-            methods = [Viewshed_R3, Viewshed_XDraw ]
-            visible = methods[mid](dem, (obsX-Xmin)/Xres, (obsY-Ymin)/Yres, obsH)
+            methods = [Viewshed_R3, Viewshed_XDraw]
+            # Grid Coordinates: Topleft(-0.5,-0.5)  BottomRight (W-0.5,H-0.5)
+            visible = methods[mid](dem, (obsX-Xmin)/Xres - 0.5, (Ymax-obsY)/Yres - 0.5, obsH)
 
             im = Image.new('L',(W,H))
             for c in range(W):
@@ -287,31 +288,33 @@ def Viewshed_R3(dem, obsX, obsY, addH):
     H = dem.shape[1]
     visible = np.ones(dem.shape)
 
-    obsX = floor(obsX) + 0.5
-    obsY = ceil(obsY) - 0.5
-    obsH = dem[int(floor(obsX)), H - int(ceil(obsY))] + addH
+    obsX_grid = int(round(obsX))
+    obsY_grid = int(round(obsY))
+    obsH = dem[obsX_grid, obsY_grid] + addH
 
     for r in range(H):
-        tarY = H - r - 0.5
+        tarY = r
         for c in range(W):
-            tarX = c + 0.5
+            tarX = c
             tarH = dem[c,r]
             tarA = (tarH - obsH) / dist(obsX,obsY,tarX,tarY)
             if abs(tarY-obsY) > abs(tarX-obsX):
                 stepX = (tarX - obsX) / (tarY - obsY)
                 if tarY > obsY:
-                    midX = obsX + stepX * (int(ceil(obsY)) - obsY)
-                    for midY in range(int(ceil(obsY)),int(floor(tarY))):
-                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                    midX = obsX
+                    for midY in range(obsY_grid+1, tarY):
+                        midH = (floor(midX)+1-midX) * dem[int(floor(midX)), midY] \
+                               + (midX-floor(midX)) * dem[int(ceil(midX)), midY]
                         midA = (midH-obsH)/dist(obsX, obsY, midX, midY)
                         if midA > tarA:
                             visible[c,r] = 0
                             break
                         midX += stepX
                 else:
-                    midX = tarX + stepX * (int(ceil(tarY)) - tarY)
-                    for midY in range(int(ceil(tarY)), int(floor(obsY))):
-                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                    midX = tarX
+                    for midY in range(tarY+1 , obsY_grid):
+                        midH = (floor(midX)+1-midX) * dem[int(floor(midX)), midY] \
+                               + (midX-floor(midX)) * dem[int(ceil(midX)), midY]
                         midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
                         if midA > tarA:
                             visible[c,r] = 0
@@ -321,18 +324,20 @@ def Viewshed_R3(dem, obsX, obsY, addH):
             else:
                 stepY = (tarY - obsY) / (tarX - obsX)
                 if tarX > obsX:
-                    midY = obsY + stepY * (int(ceil(obsX)) - obsX)
-                    for midX in range(int(ceil(obsX)), int(floor(tarX))):
-                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                    midY = obsY
+                    for midX in range(obsX_grid+1, tarX):
+                        midH = (floor(midY)+1-midY) * dem[midX, int(floor(midY))] \
+                               + (midY-floor(midY)) * dem[midX, int(ceil(midY))]
                         midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
                         if midA > tarA:
                             visible[c,r] = 0
                             break
                         midY += stepY
                 else:
-                    midY = tarY + stepY * (int(ceil(tarX)) - tarX)
-                    for midX in range(int(ceil(tarX)), int(floor(obsX))):
-                        midH = dem[int(floor(midX)), H - int(ceil(midY))]
+                    midY = tarY
+                    for midX in range(tarX+1, obsX_grid):
+                        midH = (floor(midY) + 1 - midY) * dem[midX, int(floor(midY))] \
+                               + (midY - floor(midY)) * dem[midX, int(ceil(midY))]
                         midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
                         if midA > tarA:
                             visible[c,r] = 0
