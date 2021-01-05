@@ -53,6 +53,7 @@ from .Viewshed_dialog import KronosDialog
 class Kronos:
     """QGIS Plugin Implementation."""
 
+
     def __init__(self, iface):
         """Constructor.
 
@@ -212,6 +213,11 @@ class Kronos:
         for layer in layers:
             if layer.type() == layer.RasterLayer:
                 self.dlg.cbxLayer.addItem(layer.name())
+        self.dlg.ledObsH.setText('0')
+        self.dlg.cbxAlgo.clear()
+        self.dlg.cbxAlgo.addItem("R3")
+        self.dlg.cbxAlgo.addItem("XDraw")
+        self.dlg.ledFilepath.setText(os.path.join(QgsProject.instance().homePath(), "viewshed.tif"))
 
         # show the dialog
         self.dlg.show()
@@ -227,17 +233,20 @@ class Kronos:
             H = inputlayer.height()
             obsX = float(self.dlg.ledXpos.text())
             obsY = float(self.dlg.ledYpos.text())
+            obsH = float(self.dlg.ledObsH.text())
             bbox = inputlayer.extent()
             Xmin,Ymin,Xmax,Ymax = bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(),bbox.yMaximum()
             Xres = (Xmax - Xmin)/W
             Yres = (Ymax - Ymin)/H
-            if obsX < Xmin or obsX > Xmax or obsY < Ymin or obsY > Ymax:
+            if obsX <= Xmin or obsX >= Xmax or obsY <= Ymin or obsY >= Ymax:
                 QMessageBox.critical(self.iface.mainWindow(), self.tr("Error"),
                                     self.tr("The observer point is outside the raster extent."))
                 return
 
+            mid = self.dlg.cbxAlgo.currentIndex()
+
             outputlayername = self.dlg.ledOutlayer.text()
-            outputpath = os.path.join(QgsProject.instance().homePath(), outputlayername)
+            outputpath = self.dlg.ledFilePath.text()
             meta = inputlayer.metadata()
 
             dem = np.zeros((W,H))
@@ -245,7 +254,9 @@ class Kronos:
                 for r in range(H):
                     dem[c,r], result= inputlayer.dataProvider().sample(QgsPointXY
                                 (Xmin + (c+0.5) * Xres, Ymax - (r+0.5) * Yres), 1)
-            visible = Viewshed_Naive(dem, (obsX-Xmin)/Xres, (obsY-Ymin)/Yres)
+
+            methods = [Viewshed_R3, Viewshed_XDraw ]
+            visible = methods[mid](dem, (obsX-Xmin)/Xres, (obsY-Ymin)/Yres, obsH)
 
             im = Image.new('L',(W,H))
             for c in range(W):
@@ -254,9 +265,9 @@ class Kronos:
                         im.putpixel((c,r),0)
                     else:
                         im.putpixel((c,r),255)
-            im.save(outputpath+".tif")
+            im.save(outputpath)
 
-            rlayer = QgsRasterLayer(outputpath+".tif", outputlayername)
+            rlayer = QgsRasterLayer(outputpath, outputlayername)
 
             if not rlayer.isValid():
                 print("Layer failed to load!")
@@ -268,26 +279,32 @@ class Kronos:
 def dist(x1,y1,x2,y2):
     return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
 
+def Viewshed_XDraw():
+    pass
 
-def Viewshed_Naive(dem, obsX, obsY):
+def Viewshed_R3(dem, obsX, obsY, addH):
     W = dem.shape[0]
     H = dem.shape[1]
     visible = np.ones(dem.shape)
-    obsH = dem[int(floor(obsX)), H - int(ceil(obsY))]
+
+    obsX = floor(obsX) + 0.5
+    obsY = ceil(obsY) - 0.5
+    obsH = dem[int(floor(obsX)), H - int(ceil(obsY))] + addH
+
     for r in range(H):
         tarY = H - r - 0.5
         for c in range(W):
             tarX = c + 0.5
             tarH = dem[c,r]
-            tarA = (tarH-obsH)/dist(obsX,obsY,tarX,tarY)
+            tarA = (tarH - obsH) / dist(obsX,obsY,tarX,tarY)
             if abs(tarY-obsY) > abs(tarX-obsX):
-                stepX = (tarX-obsX)/(tarY-obsY)
+                stepX = (tarX - obsX) / (tarY - obsY)
                 if tarY > obsY:
                     midX = obsX + stepX * (int(ceil(obsY)) - obsY)
                     for midY in range(int(ceil(obsY)),int(floor(tarY))):
                         midH = dem[int(floor(midX)), H - int(ceil(midY))]
-                        midA = (midH-obsH)/dist(obsX,obsY,midX,midY)
-                        if midA>tarA:
+                        midA = (midH-obsH)/dist(obsX, obsY, midX, midY)
+                        if midA > tarA:
                             visible[c,r] = 0
                             break
                         midX += stepX
