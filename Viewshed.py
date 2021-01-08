@@ -40,6 +40,7 @@ from PIL import Image
 from qgis.PyQt.QtGui import QColor
 import os.path
 import numpy as np
+import gdal
 from math import *
 
 # Initialize Qt resources from file resources.py
@@ -280,8 +281,109 @@ class Kronos:
 def dist(x1,y1,x2,y2):
     return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
 
-def Viewshed_XDraw():
-    pass
+def get_layer_array(layer):
+    ds = gdal.Open(layer.dataProvider().dataSourceUri())
+    return ds.GetRasterBand(1).ReadAsArray()
+
+def Viewshed_XDraw(dem, obsX, obsY, addH):
+    terr = get_layer_array(dem)
+
+    x, y = obsX, obsY
+    view = np.zeros_like(terr)
+    vis = np.zeros_like(view, dtype=bool)
+    view[y - 1:y + 2, x - 1:x + 2] = terr[y - 1:y + 2, x - 1:x + 2]
+    vis[y - 1:y + 2, x - 1:x + 2] = True
+    height = terr[y, x]
+
+
+    t_height, t_width = terr.shape
+    rows = np.array(range(t_width)) - x
+    cols = abs(np.array(range(t_height)) - y)[:, None]
+    cols[y] = 1
+
+    base = np.tile(rows, (t_height, 1))
+    lefts = ((cols - 1) * base) // cols + x
+    rights = lefts + 1
+
+    left_ratio = base % cols
+    zeros_index = left_ratio == 0
+    for i in range(cols.shape[0]):
+        left_ratio[i, zeros_index[i]] = cols[i]
+
+    left_ratio = left_ratio / cols
+    right_ratio = 1 - left_ratio
+
+    for i in range(1, y):
+        r = y - i - 1
+        prev_r = r + 1
+
+        left, right = max(0, x - i - 1), min(t_width, x + i + 1)
+        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
+        cur_terr = terr[r, left:right]
+        vis[r, left:right] = cur_terr >= los
+        view[r, left:right] = np.maximum(cur_terr, los)
+
+    for i in range(1, t_height - y - 1):
+        r = y + i + 1
+        prev_r = r - 1
+
+        left, right = max(0, x - i), min(t_width, x + i + 2)
+        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
+        cur_terr = terr[r, left:right]
+        vis[r, left:right] = cur_terr >= los
+        view[r, left:right] = np.maximum(cur_terr, los)
+
+    vis1 = vis
+
+    terr = terr.T
+    x, y = obsX, obsY
+    view = np.zeros_like(terr)
+    vis = np.zeros_like(view, dtype=bool)
+    view[y - 1:y + 2, x - 1:x + 2] = terr[y - 1:y + 2, x - 1:x + 2]
+    vis[y - 1:y + 2, x - 1:x + 2] = True
+    height = terr[y, x]
+
+
+    t_height, t_width = terr.shape
+    rows = np.array(range(t_width)) - x
+    cols = abs(np.array(range(t_height)) - y)[:, None]
+    cols[y] = 1
+
+    base = np.tile(rows, (t_height, 1))
+    lefts = ((cols - 1) * base) // cols + x
+    rights = lefts + 1
+
+    left_ratio = base % cols
+    zeros_index = left_ratio == 0
+    for i in range(cols.shape[0]):
+        left_ratio[i, zeros_index[i]] = cols[i]
+
+    left_ratio = left_ratio / cols
+    right_ratio = 1 - left_ratio
+
+    for i in range(1, y):
+        r = y - i - 1
+        prev_r = r + 1
+
+        left, right = max(0, x - i), min(t_width, x + i + 2)
+        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
+        cur_terr = terr[r, left:right]
+        vis[r, left:right] = cur_terr >= los
+        view[r, left:right] = np.maximum(cur_terr, los)
+
+    for i in range(1, t_height - y - 1):
+        r = y + i + 1
+        prev_r = r - 1
+
+        left, right = max(0, x - i - 1), min(t_width, x + i + 1)
+        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
+        cur_terr = terr[r, left:right]
+        vis[r, left:right] = cur_terr >= los
+        view[r, left:right] = np.maximum(cur_terr, los)
+
+    vis = np.bitwise_or(vis1, vis.T)
+
+    return vis
 
 def Viewshed_R3(dem, obsX, obsY, addH):
     W = dem.shape[0]
