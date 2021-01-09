@@ -23,7 +23,7 @@
 """
 from PyQt5.QtWidgets import QAction, QMessageBox
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QIcon, QColor
 from qgis.PyQt.QtWidgets import QAction
 from qgis.core import (
     QgsRasterLayer,
@@ -37,8 +37,10 @@ from qgis.core import (
     QgsSingleBandColorDataRenderer,
     QgsSingleBandGrayRenderer,
 )
+
+from qgis.gui import QgsMapTool, QgsMapToolEmitPoint
+
 from PIL import Image
-from qgis.PyQt.QtGui import QColor
 import os.path
 import numpy as np
 import gdal
@@ -66,6 +68,8 @@ class Kronos:
         """
         # Save reference to the QGIS interface
         self.iface = iface
+        self.canvas = self.iface.mapCanvas()
+
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
         # initialize locale
@@ -191,6 +195,15 @@ class Kronos:
         # will be set False in run()
         self.first_start = True
 
+        if self.first_start == True:
+            self.first_start = False
+            self.dlg = KronosDialog()
+            self.dlg.btnSelect.clicked.connect(self.select_viewpoint)
+
+            self.emitPoint = QgsMapToolEmitPoint(self.canvas)
+            self.emitPoint.canvasClicked.connect(self._get_point)
+            self.viewpoint = None
+
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -206,9 +219,6 @@ class Kronos:
 
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
-        if self.first_start == True:
-            self.first_start = False
-            self.dlg = KronosDialog()
 
         self.dlg.cbxLayer.clear()
         layers = list(QgsProject.instance().mapLayers().values())
@@ -279,20 +289,29 @@ class Kronos:
 
 
 
-def dist(x1,y1,x2,y2):
-    return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
+    def dist(x1,y1,x2,y2):
+        return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
 
-def get_layer_array(layer):
-    ds = gdal.Open(layer.dataProvider().dataSourceUri())
-    return ds.GetRasterBand(1).ReadAsArray()
+    def select_viewpoint(self):
+        self.canvas.setMapTool(self.emitPoint)
 
-def transform_to_image(layer, x, y):
-  point = layer.dataProvider().transformCoordinates(QgsPoint(x, y), 1)
-  return int(point.x()), int(point.y())
+    def _transform_to_image(self, layer, x, y):
+        point = layer.dataProvider().transformCoordinates(QgsPoint(x, y), 1)
+        return int(point.x()), int(point.y())
 
-def transform_to_coords(layer, x, y):
-  point = layer.dataProvider().transformCoordinates(QgsPoint(x, y), 0)
-  return point.x(), point.y()
+    def _transform_to_coords(self, layer, x, y):
+        point = layer.dataProvider().transformCoordinates(QgsPoint(x, y), 0)
+        return point.x(), point.y()
+        
+    def _get_layer_array(self, layer):
+        ds = gdal.Open(layer.dataProvider().dataSourceUri())
+        return ds.GetRasterBand(1).ReadAsArray()
+
+    def _get_point(self, point):
+      self.viewpoint = point
+      self.dlg.ledXpos.setText("{:.10f}".format(point.x()))
+      self.dlg.ledYpos.setText("{:.10f}".format(point.y()))
+      self.canvas.unsetMapTool(self.emitPoint)
 
 def Viewshed_XDraw(dem, obsX, obsY, addH):
     terr = get_layer_array(dem)
