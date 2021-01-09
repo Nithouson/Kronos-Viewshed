@@ -42,6 +42,7 @@ from qgis.gui import QgsMapTool, QgsMapToolEmitPoint
 
 from PIL import Image
 import os.path
+import os
 import numpy as np
 import gdal
 from math import *
@@ -185,7 +186,7 @@ class Kronos:
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-        icon_path = ':/plugins/Viewshed/icon.png'
+        icon_path = os.path.join(os.path.dirname(__file__), 'icon.png')
         self.add_action(
             icon_path,
             text=self.tr(u'Viewshed'),
