@@ -29,6 +29,7 @@ from qgis.core import (
     QgsRasterLayer,
     QgsProject,
     QgsPointXY,
+    QgsPoint,
     QgsRaster,
     QgsRasterShader,
     QgsColorRampShader,
@@ -284,6 +285,14 @@ def dist(x1,y1,x2,y2):
 def get_layer_array(layer):
     ds = gdal.Open(layer.dataProvider().dataSourceUri())
     return ds.GetRasterBand(1).ReadAsArray()
+
+def transform_to_image(layer, x, y):
+  point = layer.dataProvider().transformCoordinates(QgsPoint(x, y), 1)
+  return int(point.x()), int(point.y())
+
+def transform_to_coords(layer, x, y):
+  point = layer.dataProvider().transformCoordinates(QgsPoint(x, y), 0)
+  return point.x(), point.y()
 
 def Viewshed_XDraw(dem, obsX, obsY, addH):
     terr = get_layer_array(dem)
