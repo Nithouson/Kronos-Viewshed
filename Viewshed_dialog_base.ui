@@ -215,8 +215,8 @@
    <widget class="QComboBox" name="cbxLayer">
     <property name="geometry">
      <rect>
-      <x>150</x>
-      <y>50</y>
+      <x>120</x>
+      <y>40</y>
       <width>241</width>
       <height>21</height>
      </rect>
@@ -234,7 +234,7 @@
    <widget class="QLineEdit" name="ledXpos">
     <property name="geometry">
      <rect>
-      <x>80</x>
+      <x>40</x>
       <y>110</y>
       <width>133</width>
       <height>21</height>
@@ -250,7 +250,7 @@
    <widget class="QLabel" name="label_4">
     <property name="geometry">
      <rect>
-      <x>50</x>
+      <x>10</x>
       <y>110</y>
       <width>21</width>
       <height>21</height>
@@ -269,7 +269,7 @@
    <widget class="QLineEdit" name="ledYpos">
     <property name="geometry">
      <rect>
-      <x>260</x>
+      <x>200</x>
       <y>110</y>
       <width>133</width>
       <height>21</height>
@@ -285,7 +285,7 @@
    <widget class="QLabel" name="label_5">
     <property name="geometry">
      <rect>
-      <x>230</x>
+      <x>180</x>
       <y>110</y>
       <width>31</width>
       <height>21</height>
@@ -304,8 +304,8 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>40</y>
+      <x>10</x>
+      <y>30</y>
       <width>111</width>
       <height>31</height>
      </rect>
@@ -323,7 +323,7 @@
    <widget class="QLabel" name="label_2">
     <property name="geometry">
      <rect>
-      <x>30</x>
+      <x>10</x>
       <y>80</y>
       <width>153</width>
       <height>21</height>
@@ -342,7 +342,7 @@
    <widget class="QLabel" name="label_8">
     <property name="geometry">
      <rect>
-      <x>30</x>
+      <x>20</x>
       <y>150</y>
       <width>153</width>
       <height>21</height>
@@ -361,9 +361,9 @@
    <widget class="QLineEdit" name="ledObsH">
     <property name="geometry">
      <rect>
-      <x>192</x>
+      <x>182</x>
       <y>150</y>
-      <width>201</width>
+      <width>221</width>
       <height>21</height>
      </rect>
     </property>
@@ -372,6 +372,19 @@
       <family>Calibri</family>
       <pointsize>11</pointsize>
      </font>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btnSelect">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>110</y>
+      <width>71</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Select</string>
     </property>
    </widget>
   </widget>
