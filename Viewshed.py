@@ -314,105 +314,134 @@ class Kronos:
       self.dlg.ledYpos.setText("{:.10f}".format(point.y()))
       self.canvas.unsetMapTool(self.emitPoint)
 
-def Viewshed_XDraw(dem, obsX, obsY, addH):
-    terr = get_layer_array(dem)
+    def Viewshed_XDraw(self, dem, obsX, obsY, addH):
+        terr = get_layer_array(dem)
 
-    x, y = obsX, obsY
-    view = np.zeros_like(terr)
-    vis = np.zeros_like(view, dtype=bool)
-    view[y - 1:y + 2, x - 1:x + 2] = terr[y - 1:y + 2, x - 1:x + 2]
-    vis[y - 1:y + 2, x - 1:x + 2] = True
-    height = terr[y, x]
+        x, y = obsX, obsY
+        terr = terr - (terr[y, x] + addH)
+
+        # Generate index matrix
+        t_height, t_width = terr.shape
+
+        view = np.zeros_like(terr, dtype=np.float64)
+        vis = np.zeros_like(view, dtype=bool)
+        near_l, near_r = max(x - 1, 0), min(x + 2, t_width)
+        near_t, near_b = max(y - 1, 0), min(y + 2, t_height)
+        view[near_t:near_b, near_l:near_r] = terr[near_t:near_b, near_l:near_r]
+        vis[near_t:near_b, near_l:near_r] = True
+
+        rows = np.array(range(t_width))
+        cols = abs(np.array(range(t_height)) - y)[:, None]
+        cols[y] = 1
+
+        rows -= x
+        base = np.tile(rows, (t_height, 1))
+
+        lefts = np.array(range(t_width))
+        lefts[x + 1:] -= 1
+        rights = np.minimum(lefts + 1, t_width)
+        left_ratio = base
+        left_ratio[:, :x + 1] += cols
+        zeros_index = left_ratio == 0
+        for i in range(cols.shape[0]):
+          left_ratio[i, zeros_index[i]] = cols[i]
+        left_ratio = left_ratio / cols
+
+        # Calculate upper part
+        for i in range(1, y):
+            r = y - i - 1
+            prev_r = r + 1
+
+            left, right = max(0, x - i - 1), min(t_width, x + i + 2)
+            left_idx = lefts[left:right]
+            left_w = left_ratio[r, left:right]
+            los = (view[prev_r, left_idx] * left_w + view[prev_r, left_idx + 1] * (1 - left_w)) * cols[r] / cols[prev_r]
+
+            cur_terr = terr[r, left:right]
+            vis[r, left:right] = cur_terr >= los
+            view[r, left:right] = np.maximum(cur_terr, los)
+
+        # Calculate Lower part
+        for i in range(1, t_height - y - 1):
+            r = y + i + 1
+            prev_r = r - 1
+
+            left, right = max(0, x - i - 1), min(t_width, x + i + 2)
+            left_idx = lefts[left:right]
+            left_w = left_ratio[r, left:right]
+            los = (view[prev_r, left_idx] * left_w + view[prev_r, left_idx + 1] * (1 - left_w)) * cols[r] / cols[prev_r]
+
+            cur_terr = terr[r, left:right]
+            vis[r, left:right] = cur_terr >= los
+            view[r, left:right] = np.maximum(cur_terr, los)
+
+        vis1 = vis
+
+        # Transpose
+        terr = terr.T
+        x, y = y, x
+
+        t_height, t_width = terr.shape
+        view = np.zeros_like(terr)
+        vis = np.zeros_like(view, dtype=bool)
+        near_l, near_r = max(x - 1, 0), min(x + 2, t_width)
+        near_t, near_b = max(y - 1, 0), min(y + 2, t_height)
+
+        view[near_t:near_b, near_l:near_r] = terr[near_t:near_b, near_l:near_r]
+        vis[near_t:near_b, near_l:near_r] = True
 
 
-    t_height, t_width = terr.shape
-    rows = np.array(range(t_width)) - x
-    cols = abs(np.array(range(t_height)) - y)[:, None]
-    cols[y] = 1
+        rows = np.array(range(t_width))
+        cols = abs(np.array(range(t_height)) - y)[:, None]
+        cols[y] = 1
 
-    base = np.tile(rows, (t_height, 1))
-    lefts = ((cols - 1) * base) // cols + x
-    rights = lefts + 1
+        # lefts = rows
+        # lefts[x + 1:] -= 1
 
-    left_ratio = base % cols
-    zeros_index = left_ratio == 0
-    for i in range(cols.shape[0]):
-        left_ratio[i, zeros_index[i]] = cols[i]
+        rows -= x
+        base = np.tile(rows, (t_height, 1))
 
-    left_ratio = left_ratio / cols
-    right_ratio = 1 - left_ratio
+        lefts = np.array(range(t_width))
+        lefts[x + 1:] -= 1
+        rights = np.minimum(lefts + 1, t_width)
+        left_ratio = base
+        left_ratio[:, :x + 1] += cols
+        zeros_index = left_ratio == 0
+        for i in range(cols.shape[0]):
+          left_ratio[i, zeros_index[i]] = cols[i]
+        left_ratio = left_ratio / cols
 
-    for i in range(1, y):
-        r = y - i - 1
-        prev_r = r + 1
+        # Calculate upper part
+        for i in range(1, y):
+            r = y - i - 1
+            prev_r = r + 1
 
-        left, right = max(0, x - i - 1), min(t_width, x + i + 1)
-        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
-        cur_terr = terr[r, left:right]
-        vis[r, left:right] = cur_terr >= los
-        view[r, left:right] = np.maximum(cur_terr, los)
+            left, right = max(0, x - i - 1), min(t_width, x + i + 2)
+            left_idx = lefts[left:right]
+            left_w = left_ratio[r, left:right]
+            los = (view[prev_r, left_idx] * left_w + view[prev_r, left_idx + 1] * (1 - left_w)) * cols[r] / cols[prev_r]
 
-    for i in range(1, t_height - y - 1):
-        r = y + i + 1
-        prev_r = r - 1
+            cur_terr = terr[r, left:right]
+            vis[r, left:right] = cur_terr >= los
+            view[r, left:right] = np.maximum(cur_terr, los)
 
-        left, right = max(0, x - i), min(t_width, x + i + 2)
-        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
-        cur_terr = terr[r, left:right]
-        vis[r, left:right] = cur_terr >= los
-        view[r, left:right] = np.maximum(cur_terr, los)
+        # Calculate lower part
+        for i in range(1, t_height - y - 1):
+            r = y + i + 1
+            prev_r = r - 1
 
-    vis1 = vis
+            left, right = max(0, x - i - 1), min(t_width, x + i + 2)
+            left_idx = lefts[left:right]
+            left_w = left_ratio[r, left:right]
+            los = (view[prev_r, left_idx] * left_w + view[prev_r, left_idx + 1] * (1 - left_w)) * cols[r] / cols[prev_r]
 
-    terr = terr.T
-    x, y = obsX, obsY
-    view = np.zeros_like(terr)
-    vis = np.zeros_like(view, dtype=bool)
-    view[y - 1:y + 2, x - 1:x + 2] = terr[y - 1:y + 2, x - 1:x + 2]
-    vis[y - 1:y + 2, x - 1:x + 2] = True
-    height = terr[y, x]
+            cur_terr = terr[r, left:right]
+            vis[r, left:right] = cur_terr >= los
+            view[r, left:right] = np.maximum(cur_terr, los)
 
+        vis = np.bitwise_or(vis1, vis.T)
 
-    t_height, t_width = terr.shape
-    rows = np.array(range(t_width)) - x
-    cols = abs(np.array(range(t_height)) - y)[:, None]
-    cols[y] = 1
-
-    base = np.tile(rows, (t_height, 1))
-    lefts = ((cols - 1) * base) // cols + x
-    rights = lefts + 1
-
-    left_ratio = base % cols
-    zeros_index = left_ratio == 0
-    for i in range(cols.shape[0]):
-        left_ratio[i, zeros_index[i]] = cols[i]
-
-    left_ratio = left_ratio / cols
-    right_ratio = 1 - left_ratio
-
-    for i in range(1, y):
-        r = y - i - 1
-        prev_r = r + 1
-
-        left, right = max(0, x - i), min(t_width, x + i + 2)
-        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
-        cur_terr = terr[r, left:right]
-        vis[r, left:right] = cur_terr >= los
-        view[r, left:right] = np.maximum(cur_terr, los)
-
-    for i in range(1, t_height - y - 1):
-        r = y + i + 1
-        prev_r = r - 1
-
-        left, right = max(0, x - i - 1), min(t_width, x + i + 1)
-        los = ((view[prev_r, lefts[prev_r]] * left_ratio[prev_r] + view[prev_r, rights[prev_r]] * right_ratio[prev_r] - height) * cols[r] / (cols[r] - 1) + height)[left:right]
-        cur_terr = terr[r, left:right]
-        vis[r, left:right] = cur_terr >= los
-        view[r, left:right] = np.maximum(cur_terr, los)
-
-    vis = np.bitwise_or(vis1, vis.T)
-
-    return vis
+        return vis
 
 def Viewshed_R3(dem, obsX, obsY, addH):
     W = dem.shape[0]
