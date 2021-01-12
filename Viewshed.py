@@ -344,9 +344,9 @@ class Kronos:
 
         left_ratio = base
         left_ratio[:, :x + 1] += cols
-        zeros_index = left_ratio == 0
+        zeros_index = left_ratio[:, x + 1:] == 0
         for i in range(cols.shape[0]):
-          left_ratio[i, zeros_index[i]] = cols[i]
+          left_ratio[:, x + 1:][i, zeros_index[i]] = cols[i]
         left_ratio = left_ratio / cols
 
         # Calculate upper part
@@ -408,9 +408,9 @@ class Kronos:
 
         left_ratio = base
         left_ratio[:, :x + 1] += cols
-        zeros_index = left_ratio == 0
+        zeros_index = left_ratio[:, x + 1:] == 0
         for i in range(cols.shape[0]):
-          left_ratio[i, zeros_index[i]] = cols[i]
+          left_ratio[:, x + 1:][i, zeros_index[i]] = cols[i]
         left_ratio = left_ratio / cols
 
         # Calculate upper part
