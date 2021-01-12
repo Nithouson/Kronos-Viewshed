@@ -6,7 +6,7 @@ A viewshed plugin for QGIS as a part of Project Kronos.
 - QGIS 3.16.1-Hannover
 
 ## Features
-- Support major viewshed algorithms including R3, and XDraw    
+- Support major viewshed algorithms including R3 and XDraw    
 - A fast XDraw implementation as a highlight!   
 
 ## Algorithm
