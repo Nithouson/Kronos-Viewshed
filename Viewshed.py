@@ -249,12 +249,15 @@ class Kronos:
             obsH = float(self.dlg.ledObsH.text())
             bbox = inputlayer.extent()
             Xmin,Ymin,Xmax,Ymax = bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(),bbox.yMaximum()
-            Xres = (Xmax - Xmin)/W
-            Yres = (Ymax - Ymin)/H
+            # Xres = (Xmax - Xmin)/W
+            # Yres = (Ymax - Ymin)/H
             if obsX <= Xmin or obsX >= Xmax or obsY <= Ymin or obsY >= Ymax:
                 QMessageBox.critical(self.iface.mainWindow(), self.tr("Error"),
                                     self.tr("The observer point is outside the raster extent."))
                 return
+
+            obsX, obsY = self._transform_to_image(inputlayer, obsX, obsY)
+            
 
             mid = self.dlg.cbxAlgo.currentIndex()
 
@@ -262,25 +265,14 @@ class Kronos:
             outputpath = self.dlg.ledFilepath.text()
             meta = inputlayer.metadata()
 
-            dem = np.zeros((W,H))
-            for c in range(W):
-                for r in range(H):
-                    dem[c,r], result= inputlayer.dataProvider().sample(QgsPointXY
-                                (Xmin + (c+0.5) * Xres, Ymax - (r+0.5) * Yres), 1)
-
-            methods = [Viewshed_R3, Viewshed_XDraw]
+            dem = self._get_layer_array(inputlayer)
+            methods = [self.Viewshed_R3, self.Viewshed_XDraw]
             # Grid Coordinates: Topleft(-0.5,-0.5)  BottomRight (W-0.5,H-0.5)
-            visible = methods[mid](dem, (obsX-Xmin)/Xres - 0.5, (Ymax-obsY)/Yres - 0.5, obsH)
 
-            im = Image.new('L',(W,H))
-            for c in range(W):
-                for r in range(H):
-                    if visible[c,r] == 0:
-                        im.putpixel((c,r),0)
-                    else:
-                        im.putpixel((c,r),255)
+            visible = methods[mid](dem, obsX, obsY, obsH)
+
+            im = Image.fromarray(((visible + 0) * 255).astype(np.uint8))
             im.save(outputpath)
-
             rlayer = QgsRasterLayer(outputpath, outputlayername)
 
             if not rlayer.isValid():
@@ -288,9 +280,7 @@ class Kronos:
             else:
                 QgsProject.instance().addMapLayer(rlayer)
 
-
-
-    def dist(x1,y1,x2,y2):
+    def _dist(self, x1,y1,x2,y2):
         return sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2))
 
     def select_viewpoint(self):
@@ -306,17 +296,15 @@ class Kronos:
         
     def _get_layer_array(self, layer):
         ds = gdal.Open(layer.dataProvider().dataSourceUri())
-        return ds.GetRasterBand(1).ReadAsArray()
+        return ds.GetRasterBand(1).ReadAsArray().astype(np.float64)
 
     def _get_point(self, point):
-      self.viewpoint = point
-      self.dlg.ledXpos.setText("{:.10f}".format(point.x()))
-      self.dlg.ledYpos.setText("{:.10f}".format(point.y()))
-      self.canvas.unsetMapTool(self.emitPoint)
+        self.viewpoint = point
+        self.dlg.ledXpos.setText("{:.10f}".format(point.x()))
+        self.dlg.ledYpos.setText("{:.10f}".format(point.y()))
+        self.canvas.unsetMapTool(self.emitPoint)
 
-    def Viewshed_XDraw(self, dem, obsX, obsY, addH):
-        terr = get_layer_array(dem)
-
+    def Viewshed_XDraw(self, terr, obsX, obsY, addH):
         x, y = obsX, obsY
         terr = terr - (terr[y, x] + addH)
 
@@ -339,7 +327,7 @@ class Kronos:
 
         lefts = np.array(range(t_width))
         lefts[x + 1:] -= 1
-        rights = np.minimum(lefts + 1, t_width)
+
         left_ratio = base
         left_ratio[:, :x + 1] += cols
         zeros_index = left_ratio == 0
@@ -403,7 +391,7 @@ class Kronos:
 
         lefts = np.array(range(t_width))
         lefts[x + 1:] -= 1
-        rights = np.minimum(lefts + 1, t_width)
+
         left_ratio = base
         left_ratio[:, :x + 1] += cols
         zeros_index = left_ratio == 0
@@ -443,64 +431,64 @@ class Kronos:
 
         return vis
 
-def Viewshed_R3(dem, obsX, obsY, addH):
-    W = dem.shape[0]
-    H = dem.shape[1]
-    visible = np.ones(dem.shape)
+    def Viewshed_R3(self, dem, obsX, obsY, addH):
+        W = dem.shape[0]
+        H = dem.shape[1]
+        visible = np.ones(dem.shape)
 
-    obsX_grid = int(round(obsX))
-    obsY_grid = int(round(obsY))
-    obsH = dem[obsX_grid, obsY_grid] + addH
+        obsX_grid = int(round(obsX))
+        obsY_grid = int(round(obsY))
+        obsH = dem[obsX_grid, obsY_grid] + addH
 
-    for r in range(H):
-        tarY = r
-        for c in range(W):
-            tarX = c
-            tarH = dem[c,r]
-            tarA = (tarH - obsH) / dist(obsX,obsY,tarX,tarY)
-            if abs(tarY-obsY) > abs(tarX-obsX):
-                stepX = (tarX - obsX) / (tarY - obsY)
-                if tarY > obsY:
-                    midX = obsX
-                    for midY in range(obsY_grid+1, tarY):
-                        midH = (floor(midX)+1-midX) * dem[int(floor(midX)), midY] \
-                               + (midX-floor(midX)) * dem[int(ceil(midX)), midY]
-                        midA = (midH-obsH)/dist(obsX, obsY, midX, midY)
-                        if midA > tarA:
-                            visible[c,r] = 0
-                            break
-                        midX += stepX
+        for r in range(H):
+            tarY = r
+            for c in range(W):
+                tarX = c
+                tarH = dem[c,r]
+                tarA = (tarH - obsH) / self._dist(obsX,obsY,tarX,tarY)
+                if abs(tarY-obsY) > abs(tarX-obsX):
+                    stepX = (tarX - obsX) / (tarY - obsY)
+                    if tarY > obsY:
+                        midX = obsX
+                        for midY in range(obsY_grid+1, tarY):
+                            midH = (floor(midX)+1-midX) * dem[int(floor(midX)), midY] \
+                                  + (midX-floor(midX)) * dem[int(ceil(midX)), midY]
+                            midA = (midH-obsH)/(obsX, obsY, midX, midY)
+                            if midA > tarA:
+                                visible[c,r] = 0
+                                break
+                            midX += stepX
+                    else:
+                        midX = tarX
+                        for midY in range(tarY+1 , obsY_grid):
+                            midH = (floor(midX)+1-midX) * dem[int(floor(midX)), midY] \
+                                  + (midX-floor(midX)) * dem[int(ceil(midX)), midY]
+                            midA = (midH - obsH) / self._dist(obsX, obsY, midX, midY)
+                            if midA > tarA:
+                                visible[c,r] = 0
+                                break
+                            midX += stepX
+
                 else:
-                    midX = tarX
-                    for midY in range(tarY+1 , obsY_grid):
-                        midH = (floor(midX)+1-midX) * dem[int(floor(midX)), midY] \
-                               + (midX-floor(midX)) * dem[int(ceil(midX)), midY]
-                        midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
-                        if midA > tarA:
-                            visible[c,r] = 0
-                            break
-                        midX += stepX
-
-            else:
-                stepY = (tarY - obsY) / (tarX - obsX)
-                if tarX > obsX:
-                    midY = obsY
-                    for midX in range(obsX_grid+1, tarX):
-                        midH = (floor(midY)+1-midY) * dem[midX, int(floor(midY))] \
-                               + (midY-floor(midY)) * dem[midX, int(ceil(midY))]
-                        midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
-                        if midA > tarA:
-                            visible[c,r] = 0
-                            break
-                        midY += stepY
-                else:
-                    midY = tarY
-                    for midX in range(tarX+1, obsX_grid):
-                        midH = (floor(midY) + 1 - midY) * dem[midX, int(floor(midY))] \
-                               + (midY - floor(midY)) * dem[midX, int(ceil(midY))]
-                        midA = (midH - obsH) / dist(obsX, obsY, midX, midY)
-                        if midA > tarA:
-                            visible[c,r] = 0
-                            break
-                        midY += stepY
-    return visible
+                    stepY = (tarY - obsY) / (tarX - obsX)
+                    if tarX > obsX:
+                        midY = obsY
+                        for midX in range(obsX_grid+1, tarX):
+                            midH = (floor(midY)+1-midY) * dem[midX, int(floor(midY))] \
+                                  + (midY-floor(midY)) * dem[midX, int(ceil(midY))]
+                            midA = (midH - obsH) / self._dist(obsX, obsY, midX, midY)
+                            if midA > tarA:
+                                visible[c,r] = 0
+                                break
+                            midY += stepY
+                    else:
+                        midY = tarY
+                        for midX in range(tarX+1, obsX_grid):
+                            midH = (floor(midY) + 1 - midY) * dem[midX, int(floor(midY))] \
+                                  + (midY - floor(midY)) * dem[midX, int(ceil(midY))]
+                            midA = (midH - obsH) / self._dist(obsX, obsY, midX, midY)
+                            if midA > tarA:
+                                visible[c,r] = 0
+                                break
+                            midY += stepY
+        return visible
