@@ -6,10 +6,8 @@ A viewshed plugin for QGIS as a part of Project Kronos.
 - QGIS 3.16.1-Hannover
 
 ## Features
-- Support major viewshed algorithms including R3,R2 and XDraw    
-- Implement one of two new viewshed algorithms    
-- Viewshed from multiple observers    
-- Simple observation site optimization    
+- Support major viewshed algorithms including R3, and XDraw    
+- A fast XDraw implementation as a highlight!   
 
 ## Algorithm
 - [Basic viewshed](https://www.researchgate.net/publication/2808061_Geometric_Algorithms_for_Siting_of_Air_Defense_Missile_Batteries)
