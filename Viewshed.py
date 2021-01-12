@@ -271,8 +271,10 @@ class Kronos:
 
             visible = methods[mid](dem, obsX, obsY, obsH)
 
-            im = Image.fromarray(((visible + 0) * 255).astype(np.uint8))
-            im.save(outputpath)
+            ds = gdal.Open(inputlayer.dataProvider().dataSourceUri())
+            raster = self._array_to_raster(outputpath, ds.GetProjection(), ds.GetGeoTransform(),visible)
+            # im = Image.fromarray(((visible + 0) * 255).astype(np.uint8))
+            # im.save(outputpath)
             rlayer = QgsRasterLayer(outputpath, outputlayername)
 
             if not rlayer.isValid():
@@ -303,6 +305,18 @@ class Kronos:
         self.dlg.ledXpos.setText("{:.10f}".format(point.x()))
         self.dlg.ledYpos.setText("{:.10f}".format(point.y()))
         self.canvas.unsetMapTool(self.emitPoint)
+
+    def _array_to_raster(self, path, projection, geotransform, visible):
+      driver = gdal.GetDriverByName('Gtiff')
+      raster = driver.Create(path, visible.shape[1], visible.shape[0], 1, gdal.GDT_UInt16)
+
+      raster.SetProjection(projection)
+      raster.SetGeoTransform(geotransform)
+
+      raster.GetRasterBand(1).WriteArray((visible + 0))
+      raster.FlushCache()
+
+      return raster
 
     def Viewshed_XDraw(self, terr, obsX, obsY, addH):
         x, y = obsX, obsY
